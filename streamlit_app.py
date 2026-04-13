@@ -19,11 +19,11 @@ def create_schedule(parts, balas, hist_df):
     if not hist_df.empty:
         for s in steps:
             if s in hist_df:
-                for p in parts: 
+                for p in parts:
                     counts[s][p] = hist_df[s].value_counts().get(p, 0)
 
     used_balas = set(hist_df["Balaclava"].dropna().astype(str)) if not hist_df.empty and "Balaclava" in hist_df else set()
-    
+
     schedule = []
     for b in [m for m in balas if m not in used_balas]:
         route, avail_parts = {"Balaclava": b}, parts.copy()
@@ -56,7 +56,7 @@ with st.sidebar:
     participants = st.multiselect("Participants present?", [f"P{i}" for i in range(1, 13)])
     balaclava_input = st.text_area("Balaclavas (comma-separated)", placeholder="B1, B2, B3...")
     active_balas = [m.strip() for m in balaclava_input.split(",") if m.strip()]
-    
+
     history_file = st.file_uploader("Upload Master History", type=["csv", "xlsx"])
     if history_file and st.session_state.history_df.empty:
         st.session_state.history_df = pd.read_csv(history_file) if history_file.name.endswith(".csv") else pd.read_excel(history_file)
@@ -77,7 +77,8 @@ if st.button("Generate New Schedule"):
     else:
         new_df = create_schedule(participants, active_balas, st.session_state.history_df)
         if not new_df.empty:
-            new_df["Done?"] = False  # Add your checkbox column
+            new_df["Done?"] = False 
+            new_df["Comments"] = "" # Added blank comments column
             st.session_state.df_schedule = new_df
         else:
             st.warning("All provided Balaclavas have already been used in the history!")
@@ -86,13 +87,14 @@ if st.button("Generate New Schedule"):
 if st.session_state.df_schedule is not None:
     st.divider()
     st.subheader("Today's Schedule")
-    st.write("Edit Step 5 or check off completed rows below:")
+    st.write("Edit Step 5, add comments, or check off completed rows below:")
 
     edited_df = st.data_editor(
         st.session_state.df_schedule,
         column_config={
             "Step 5 (E)": st.column_config.SelectboxColumn("Step 5 (E)", options=participants, required=True),
-            "Done?": st.column_config.CheckboxColumn("Completed", default=False)
+            "Done?": st.column_config.CheckboxColumn("Completed", default=False),
+            "Comments": st.column_config.TextColumn("Comments", placeholder="Add notes here...", help="Optional notes for this route")
         },
         disabled=["Balaclava"] + steps[:4],
         use_container_width=True,
@@ -103,7 +105,7 @@ if st.session_state.df_schedule is not None:
     # Validation logic
     row_check = [steps[i] for i in range(5)]
     has_dupes = any(len(row.dropna()) != len(set(row.dropna())) for _, row in edited_df[row_check].iterrows())
-    
+
     if has_dupes:
         st.error("Duplicate participant detected in the same row! Please fix Step 5.")
     else:
