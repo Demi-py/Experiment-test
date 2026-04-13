@@ -15,7 +15,6 @@ if "df_schedule" not in st.session_state:
 
 def create_schedule(all_parts, present_parts, balas, hist_df):
     """Core logic to generate the route. Steps 1 & 5 use all_parts; 2, 3, 4 use present_parts."""
-    # Use all_parts for counts to maintain fairness across the whole pool
     counts = {s: {p: 0 for p in all_parts} for s in steps}
     if not hist_df.empty:
         for s in steps:
@@ -31,7 +30,7 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
         row_assigned = []
         
         for s in steps:
-            # Logic: Steps 1 (A) and 5 (E) use the full list. Steps 2, 3, 4 use only present people.
+            # Steps 1 (A) and 5 (E) use the full list. Steps 2, 3, 4 use only present people.
             if s == "Step 1 (A)" or s == "Step 5 (E)":
                 pool = [p for p in all_parts if p not in row_assigned]
             else:
@@ -104,10 +103,9 @@ if st.session_state.df_schedule is not None:
     edited_df = st.data_editor(
         st.session_state.df_schedule,
         column_config={
-            # Step 5 now allows selection from the full list (all_participants)
             "Step 5 (E)": st.column_config.SelectboxColumn("Step 5 (E)", options=all_participants, required=True),
             "Done?": st.column_config.CheckboxColumn("Completed", default=False),
-            "Comments": st.column_config.TextColumn("Comments", placeholder="Add notes here...")
+            "Comments": st.column_config.TextColumn("Comments", help="Optional notes for this route")
         },
         disabled=["Balaclava"] + steps[:4],
         use_container_width=True,
@@ -120,7 +118,7 @@ if st.session_state.df_schedule is not None:
     has_dupes = any(len(row.dropna()) != len(set(row.dropna())) for _, row in edited_df[row_check].iterrows())
 
     if has_dupes:
-        st.error("Duplicate participant detected in the same row! Even if someone isn't present, they can't do two steps in one route.")
+        st.error("Duplicate participant detected in the same row!")
     else:
         st.success("Schedule is valid.")
 
