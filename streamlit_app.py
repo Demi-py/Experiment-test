@@ -37,7 +37,7 @@ uploaded_history = st.file_uploader(
 )
 
 # =========================
-# HISTORY
+# Use a history file so that the previous participants are not following the same exact route again
 # =========================
 
 if uploaded_history is not None:
@@ -49,7 +49,7 @@ else:
     history_df = pd.DataFrame()
 
 # =========================
-# FUNCTION
+# Follow the route, step 1 (a) until step 5 (e)
 # =========================
 
 def create_schedule(participants, Balaclavas, history_df):
@@ -73,7 +73,7 @@ def create_schedule(participants, Balaclavas, history_df):
                 for p in participants:
                     counts[step][p] = value_counts.get(p, 0)
 
-    # Optional: skip Balaclavas already present in history
+    # Skip Balaclavas already present in history, since the same Balaclava cannot be used again
     used_Balaclavas = set()
     if not history_df.empty and "Balaclava" in history_df.columns:
         used_Balaclavas = set(history_df["Balaclava"].dropna().astype(str).tolist())
@@ -115,8 +115,8 @@ def create_schedule(participants, Balaclavas, history_df):
 
 def validate_step5_duplicates(df):
     """
-    Checks whether Step 5 duplicates another participant in the same row.
-    Returns a list of row indices with duplicates.
+    Checks whether Step 5 duplicates another participant in the same row. We do not want this.
+    Returns a list of row indices with duplicates. We also do not want duplicates.
     """
     duplicate_rows = []
 
@@ -137,7 +137,7 @@ def validate_step5_duplicates(df):
     return duplicate_rows
 
 # =========================
-# GENERATE
+# Generate a schedule for that particular day with the selected balaclavas and with the selected participants
 # =========================
 
 if st.button("Generate schedule"):
