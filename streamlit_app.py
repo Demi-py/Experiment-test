@@ -13,7 +13,7 @@ st.write(
 )
 
 # =========================
-# INPUT
+# Our input
 # =========================
 
 all_participants = [f"P{i}" for i in range(1, 13)]
