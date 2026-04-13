@@ -69,14 +69,22 @@ if st.button("Generate schedule"):
             st.warning("No new Balaclavas left to schedule, or they were already present in the history.")
         else:
             st.subheader("Generated schedule")
+            
+            # --- NEW: Add a boolean column for the checkbox ---
+            df_schedule["Step 5 Done"] = False 
+            
             edited_df = st.data_editor(
                 df_schedule,
-                column_config={"Step 5 (E)": st.column_config.SelectboxColumn("Step 5 (E)", options=participants, required=True)},
+                column_config={
+                    "Step 5 (E)": st.column_config.SelectboxColumn("Step 5 (E)", options=participants, required=True),
+                    # --- NEW: Configure the checkbox column ---
+                    "Step 5 Done": st.column_config.CheckboxColumn("Done?", default=False)
+                },
                 disabled=["Balaclava"] + steps[:4],
                 use_container_width=True, hide_index=True
             )
 
-            # Pythonic duplicate validation check
+            # Pythonic duplicate validation check (this stays the same, it ignores the new checkbox column)
             has_duplicates = any(len(row.dropna()) != len(set(row.dropna())) for _, row in edited_df[steps].iterrows())
             if has_duplicates:
                 st.error("Duplicate participant found in a row. Each participant must appear only once per row.")
@@ -90,4 +98,5 @@ if st.button("Generate schedule"):
             st.write("### Downloads")
             render_downloads(edited_df, "schedule")
             render_downloads(updated_hist, "history")
+
 
