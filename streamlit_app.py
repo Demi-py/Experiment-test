@@ -11,7 +11,7 @@ st.write("Generate a schedule for selected participants. Step 5 can be manually 
 # 1. Inputs & Setup
 # =========================
 participants = st.multiselect("Participants present today?", [f"P{i}" for i in range(1, 13)])
-balaclavas = [m.strip() for m in st.text_area("Balaclavas (comma-separated, e.g., M1,M2)").split(",") if m.strip()]
+balaclavas = [m.strip() for m in st.text_area("Balaclavas (comma-separated, e.g., B1,B2)").split(",") if m.strip()]
 history_file = st.file_uploader("Upload a previous history file (optional)", type=["csv", "xlsx"])
 
 # Inline history loading
