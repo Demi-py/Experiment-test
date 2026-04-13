@@ -123,3 +123,9 @@ if st.session_state.df_schedule is not None:
     if st.button("Clear & Start Over"):
         st.session_state.df_schedule = None
         st.rerun()
+
+
+##Credits
+#This project was developed by Demi van Dijk, DNA Analyst at the Netherlands Forensic Institute (NFI). The initial vesion of the scheduling alogrithm was created with help from Stijn van Lierop, Datascientist at the NFI. 
+#The application was further developed, refined, and extended by Demi van Dijk, including the interface and functionality.
+#AI tools (ChatGPT and Google Gemini) were used as coding assistants during development.
