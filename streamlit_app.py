@@ -118,7 +118,7 @@ if st.session_state.df_schedule is not None:
     st.divider()
     st.write("### Export Data")
     render_downloads(edited_df, "daily_schedule")
-    render_downloads(combined_hist, "master_history_updated")
+    render_downloads(combined_hist, "history_updated")
 
     if st.button("Clear & Start Over"):
         st.session_state.df_schedule = None
