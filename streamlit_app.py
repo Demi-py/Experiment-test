@@ -110,7 +110,7 @@ if st.session_state.df_schedule is not None:
         st.success("Schedule is valid.")
 
     # Show combined history for the final download
-    st.subheader("Updated Master History Preview")
+    st.subheader("Updated History Preview")
     combined_hist = pd.concat([st.session_state.history_df, edited_df], ignore_index=True)
     st.dataframe(combined_hist, use_container_width=True, hide_index=True)
 
