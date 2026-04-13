@@ -59,44 +59,59 @@ def render_downloads(df, filename_prefix):
 # =========================
 # 3. UI & Execution
 # =========================
+
+# Initialize the session state "slot" if it doesn't exist yet
+if "df_schedule" not in st.session_state:
+    st.session_state.df_schedule = None
+
+# Logic for the "Generate" button
 if st.button("Generate schedule"):
-    if len(participants) < 5: st.error("You need at least 5 participants for a 5 step route.")
-    elif not balaclavas: st.error("Please enter at least 1 Balaclava.")
+    if len(participants) < 5: 
+        st.error("You need at least 5 participants.")
+    elif not balaclavas: 
+        st.error("Please enter at least 1 Balaclava.")
     else:
-        df_schedule = create_schedule(participants, balaclavas, history_df)
-        
-        if df_schedule.empty:
-            st.warning("No new Balaclavas left to schedule, or they were already present in the history.")
+        # Save the result into session_state instead of a local variable
+        df = create_schedule(participants, balaclavas, history_df)
+        if not df.empty:
+            df["Step 5 Done"] = False
+            st.session_state.df_schedule = df
         else:
-            st.subheader("Generated schedule")
-            
-            # --- NEW: Add a boolean column for the checkbox ---
-            df_schedule["Step 5 Done"] = False 
-            
-            edited_df = st.data_editor(
-                df_schedule,
-                column_config={
-                    "Step 5 (E)": st.column_config.SelectboxColumn("Step 5 (E)", options=participants, required=True),
-                    # --- NEW: Configure the checkbox column ---
-                    "Step 5 Done": st.column_config.CheckboxColumn("Done?", default=False)
-                },
-                disabled=["Balaclava"] + steps[:4],
-                use_container_width=True, hide_index=True
-            )
+            st.warning("No new Balaclavas left to schedule.")
 
-            # Pythonic duplicate validation check (this stays the same, it ignores the new checkbox column)
-            has_duplicates = any(len(row.dropna()) != len(set(row.dropna())) for _, row in edited_df[steps].iterrows())
-            if has_duplicates:
-                st.error("Duplicate participant found in a row. Each participant must appear only once per row.")
-            else:
-                st.success("Schedule is valid.")
+# Logic to display the schedule if it exists in our "save slot"
+if st.session_state.df_schedule is not None:
+    st.subheader("Generated schedule")
+    
+    # We use the data from session_state here
+    edited_df = st.data_editor(
+        st.session_state.df_schedule,
+        column_config={
+            "Step 5 (E)": st.column_config.SelectboxColumn("Step 5 (E)", options=participants, required=True),
+            "Step 5 Done": st.column_config.CheckboxColumn("Done?", default=False)
+        },
+        disabled=["Balaclava"] + steps[:4],
+        use_container_width=True, 
+        hide_index=True,
+        key="schedule_editor" # Adding a key helps Streamlit track changes
+    )
 
-            updated_hist = edited_df if history_df.empty else pd.concat([history_df, edited_df], ignore_index=True)
-            st.subheader("Updated history preview")
-            st.dataframe(updated_hist, use_container_width=True, hide_index=True)
+    # Note: We use edited_df for validation and downloads so it reflects your clicks
+    has_duplicates = any(len(row.dropna()) != len(set(row.dropna())) for _, row in edited_df[steps].iterrows())
+    
+    if has_duplicates:
+        st.error("Duplicate participant found in a row.")
+    else:
+        st.success("Schedule is valid.")
 
-            st.write("### Downloads")
-            render_downloads(edited_df, "schedule")
-            render_downloads(updated_hist, "history")
-
+    updated_hist = edited_df if history_df.empty else pd.concat([history_df, edited_df], ignore_index=True)
+    
+    st.write("### Downloads")
+    render_downloads(edited_df, "schedule")
+    render_downloads(updated_hist, "history")
+    
+    # Optional: Add a button to clear the schedule and start over
+    if st.button("Clear and Reset"):
+        st.session_state.df_schedule = None
+        st.rerun()
 
