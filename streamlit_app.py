@@ -54,7 +54,7 @@ def render_downloads(df, filename):
 with st.sidebar:
     st.header("Setup")
     participants = st.multiselect("Participants present?", [f"P{i}" for i in range(1, 13)])
-    balaclava_input = st.text_area("Balaclavas (comma-separated)", placeholder="M1, M2, M3...")
+    balaclava_input = st.text_area("Balaclavas (comma-separated)", placeholder="B1, B2, B3...")
     active_balas = [m.strip() for m in balaclava_input.split(",") if m.strip()]
     
     history_file = st.file_uploader("Upload Master History", type=["csv", "xlsx"])
