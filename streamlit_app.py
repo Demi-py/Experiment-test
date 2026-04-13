@@ -8,8 +8,6 @@ st.set_page_config(page_title="Planning Generator", layout="wide")
 
 st.title("Planning Generator")
 
-st.write("Deze versie gebruikt jouw originele logica, stap 2, 3 en 4 zijn restricted binnen een blok van 4 routes, stap 1 en stap 5 zijn vrij.")
-
 # =========================
 # INPUT
 # =========================
@@ -17,17 +15,17 @@ st.write("Deze versie gebruikt jouw originele logica, stap 2, 3 en 4 zijn restri
 all_participants = [f"P{i}" for i in range(1, 13)]
 
 selected_participants = st.multiselect(
-    "Welke personen zijn er vandaag?",
+    "Which people are present today?",
     all_participants,
     default=all_participants
 )
 
-balls_input = st.text_area(
-    "Welke balls/routes wil je vandaag gebruiken? Vul komma-gescheiden in, bijvoorbeeld B1,B2,B3,B4",
+mutsen_input = st.text_area(
+    "Welke mutsen/routes wil je vandaag gebruiken? Vul komma-gescheiden in, bijvoorbeeld B1,B2,B3,B4",
     value="B1,B2,B3,B4"
 )
 
-active_balls = [b.strip() for b in balls_input.split(",") if b.strip()]
+active_mutsen = [b.strip() for b in mutsen_input.split(",") if b.strip()]
 
 uploaded_history = st.file_uploader(
     "Upload een eerdere history file, optioneel",
@@ -35,7 +33,7 @@ uploaded_history = st.file_uploader(
 )
 
 # =========================
-# HISTORY INLEZEN
+# READ HISTORY
 # =========================
 
 if uploaded_history is not None:
@@ -47,13 +45,12 @@ else:
     history_df = pd.DataFrame()
 
 # =========================
-# FUNCTIE
+# FUNCTION SCHEDULE
 # =========================
 
-def create_schedule(participants, active_balls, history_df, route_length=5):
+def create_schedule(participants, active_mutsen, history_df, route_length=5):
     schedule = []
 
-    # Start zoals in je originele code
     turn_history = {f"Stap {i + 1}": participants.copy() for i in range(route_length)}
 
     # Als er history is, voeg die toe aan turn_history zodat eerdere verdeling meetelt
@@ -67,19 +64,19 @@ def create_schedule(participants, active_balls, history_df, route_length=5):
     restricted_steps = ["Stap 2", "Stap 3", "Stap 4"]
     block_used_in_restricted = set()
 
-    # Eventueel balls overslaan die al in history zitten
-    used_balls = set()
-    if not history_df.empty and "Ball" in history_df.columns:
-        used_balls = set(history_df["Ball"].dropna().astype(str).tolist())
+    # Eventueel mutsen overslaan die al in history zitten
+    used_mutsen = set()
+    if not history_df.empty and "Muts" in history_df.columns:
+        used_mutsen = set(history_df["Muts"].dropna().astype(str).tolist())
 
-    filtered_active_balls = [b for b in active_balls if b not in used_balls]
+    filtered_active_mutsen = [b for b in active_mutsen if b not in used_mutsen]
 
-    for ball_idx, ball_name in enumerate(filtered_active_balls, start=1):
+    for Muts_idx, Muts_name in enumerate(filtered_active_mutsen, start=1):
         # Reset blok after every four rows
-        if (ball_idx - 1) % 4 == 0:
+        if (Muts_idx - 1) % 4 == 0:
             block_used_in_restricted = set()
 
-        route = {"Ball": ball_name}
+        route = {"Muts": Muts_name}
         possible_participants = participants.copy()
         step_order = ["Stap 2", "Stap 3", "Stap 4", "Stap 1", "Stap 5"]
 
@@ -124,10 +121,10 @@ def create_schedule(participants, active_balls, history_df, route_length=5):
         schedule.append(route)
 
     if not schedule:
-        return pd.DataFrame(columns=["Ball", "Blok", "Stap 1", "Stap 2", "Stap 3", "Stap 4", "Stap 5"])
+        return pd.DataFrame(columns=["Muts", "Stap 1 (A)", "Stap 2 (B)", "Stap 3 (C)", "Stap 4 (D)", "Stap 5 (E)"])
 
     df = pd.DataFrame(schedule)
-    cols = ["Ball"] + [f"Stap {i + 1}" for i in range(route_length)]
+    cols = ["Muts"] + [f"Stap {i + 1}" for i in range(route_length)]
     df = df[cols]
     df.insert(1, "Blok", [(i // 4) + 1 for i in range(len(df))])
 
@@ -140,12 +137,12 @@ def create_schedule(participants, active_balls, history_df, route_length=5):
 if st.button("Genereer planning"):
     if len(selected_participants) < 5:
         st.error("Je hebt minimaal 5 aanwezige personen nodig voor een route van 5 stappen.")
-    elif len(active_balls) == 0:
-        st.error("Voer minstens 1 ball in.")
+    elif len(active_mutsen) == 0:
+        st.error("Voer minstens 1 muts in.")
     else:
         df_schedule = create_schedule(
             participants=selected_participants,
-            active_balls=active_balls,
+            active_mutsen=active_mutsen,
             history_df=history_df,
             route_length=5
         )
@@ -153,7 +150,7 @@ if st.button("Genereer planning"):
         if df_schedule.empty:
             st.warning("Er zijn geen nieuwe routes over om te plannen, of alles stond al in de history.")
         else:
-            st.subheader("Nieuwe planning")
+            st.subheader("New planning")
             st.dataframe(df_schedule, use_container_width=True)
 
             # Updated history maken
