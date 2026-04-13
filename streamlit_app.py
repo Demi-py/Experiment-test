@@ -3,12 +3,12 @@ import pandas as pd
 import random
 import io
 
-st.set_page_config(page_title="Mask Schedule Generator", layout="wide")
+st.set_page_config(page_title="Balaclava Schedule Generator", layout="wide")
 
-st.title("Mask Schedule Generator")
+st.title("Balaclava Schedule Generator")
 
 st.write(
-    "Generate a schedule for selected participants and masks. "
+    "Generate a schedule for selected participants and Balaclavas. "
     "Step 5 can be adjusted manually in the table before downloading."
 )
 
@@ -24,12 +24,12 @@ selected_participants = st.multiselect(
     default=[]
 )
 
-masks_input = st.text_area(
-    "Which masks do you want to use today? Enter comma separated values, for example M1,M2,M3,M4",
+Balaclavas_input = st.text_area(
+    "Which Balaclavas do you want to use today? Enter comma separated values, for example M1,M2,M3,M4",
     value=""
 )
 
-active_masks = [m.strip() for m in masks_input.split(",") if m.strip()]
+active_Balaclavas = [m.strip() for m in Balaclavas_input.split(",") if m.strip()]
 
 uploaded_history = st.file_uploader(
     "Upload a previous history file, optional",
@@ -52,7 +52,7 @@ else:
 # FUNCTION
 # =========================
 
-def create_schedule(participants, masks, history_df):
+def create_schedule(participants, Balaclavas, history_df):
     step_names = [
         "Step 1 (A)",
         "Step 2 (B)",
@@ -73,15 +73,15 @@ def create_schedule(participants, masks, history_df):
                 for p in participants:
                     counts[step][p] = value_counts.get(p, 0)
 
-    # Optional: skip masks already present in history
-    used_masks = set()
-    if not history_df.empty and "Mask" in history_df.columns:
-        used_masks = set(history_df["Mask"].dropna().astype(str).tolist())
+    # Optional: skip Balaclavas already present in history
+    used_Balaclavas = set()
+    if not history_df.empty and "Balaclava" in history_df.columns:
+        used_Balaclavas = set(history_df["Balaclava"].dropna().astype(str).tolist())
 
-    filtered_masks = [m for m in masks if m not in used_masks]
+    filtered_Balaclavas = [m for m in Balaclavas if m not in used_Balaclavas]
 
-    for mask in filtered_masks:
-        route = {"Mask": mask}
+    for Balaclava in filtered_Balaclavas:
+        route = {"Balaclava": Balaclava}
         possible_participants = participants.copy()
 
         for step in step_names:
@@ -104,11 +104,11 @@ def create_schedule(participants, masks, history_df):
 
     if not schedule:
         return pd.DataFrame(
-            columns=["Mask"] + step_names
+            columns=["Balaclava"] + step_names
         )
 
     df = pd.DataFrame(schedule)
-    df = df[["Mask"] + step_names]
+    df = df[["Balaclava"] + step_names]
 
     return df
 
@@ -143,17 +143,17 @@ def validate_step5_duplicates(df):
 if st.button("Generate schedule"):
     if len(selected_participants) < 5:
         st.error("You need at least 5 participants for a 5 step route.")
-    elif len(active_masks) == 0:
-        st.error("Please enter at least 1 mask.")
+    elif len(active_Balaclavas) == 0:
+        st.error("Please enter at least 1 Balaclava.")
     else:
         df_schedule = create_schedule(
             participants=selected_participants,
-            masks=active_masks,
+            Balaclavas=active_Balaclavas,
             history_df=history_df
         )
 
         if df_schedule.empty:
-            st.warning("No new masks are left to schedule, or they were already present in the history.")
+            st.warning("No new Balaclavas are left to schedule, or they were already present in the history.")
         else:
             st.subheader("Generated schedule")
 
@@ -166,7 +166,7 @@ if st.button("Generate schedule"):
                         required=True
                     )
                 },
-                disabled=["Mask", "Step 1 (A)", "Step 2 (B)", "Step 3 (C)", "Step 4 (D)"],
+                disabled=["Balaclava", "Step 1 (A)", "Step 2 (B)", "Step 3 (C)", "Step 4 (D)"],
                 use_container_width=True,
                 hide_index=True
             )
