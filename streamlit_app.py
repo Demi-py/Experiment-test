@@ -3,19 +3,15 @@ import pandas as pd
 import random
 import io
 
-# 1. Page Configuration & Title
+# 1. Setup for the schedule
 st.set_page_config(page_title="Balaclava Schedule Generator", layout="wide")
-st.title("Balaclava Schedule Generator 2.0")
-
-# 2. Setup Step Names & Initial Session States
+st.title("Balaclava Schedule Generator")
 steps = [f"Step {i} ({chr(64+i)})" for i in range(1, 6)]
 
 if "history_df" not in st.session_state:
     st.session_state.history_df = pd.DataFrame()
 if "df_schedule" not in st.session_state:
     st.session_state.df_schedule = None
-
-# --- Helper Functions ---
 
 def create_schedule(parts, balas, hist_df):
     """Core logic to generate the route avoiding previous counts."""
@@ -54,9 +50,7 @@ def render_downloads(df, filename):
         df.to_excel(writer, index=False)
     c2.download_button(f"Download {filename} (Excel)", buf.getvalue(), f"{filename}.xlsx")
 
-# --- UI Layout ---
-
-# Sidebar for Inputs
+# 2. Layout
 with st.sidebar:
     st.header("Setup")
     participants = st.multiselect("Participants present?", [f"P{i}" for i in range(1, 13)])
@@ -67,14 +61,14 @@ with st.sidebar:
     if history_file and st.session_state.history_df.empty:
         st.session_state.history_df = pd.read_csv(history_file) if history_file.name.endswith(".csv") else pd.read_excel(history_file)
 
-# Main Section: History Preview
+# 3. History
 if not st.session_state.history_df.empty:
     with st.expander("View Uploaded History Records", expanded=False):
         st.dataframe(st.session_state.history_df, use_container_width=True, hide_index=True)
 else:
     st.info("No history loaded yet. Routes will be generated randomly.")
 
-# Generate Button
+# 4. New schedule
 if st.button("Generate New Schedule"):
     if len(participants) < 5:
         st.error("Need at least 5 participants for a 5-step route.")
@@ -88,7 +82,7 @@ if st.button("Generate New Schedule"):
         else:
             st.warning("All provided Balaclavas have already been used in the history!")
 
-# Main Section: The Interactive Table
+# 5. Create interactive table for step 5 (e)
 if st.session_state.df_schedule is not None:
     st.divider()
     st.subheader("Today's Schedule")
