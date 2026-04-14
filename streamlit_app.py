@@ -27,7 +27,7 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
 
     schedule = []
     
-    # NEW: Trackers to remember who we've used across ALL rows being generated today
+    # To remember who we have used across ALL rows being generated today
     daily_middle_used = []
     daily_outer_used = []
     
@@ -66,7 +66,7 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             row_assigned.append(chosen)
             counts[s][chosen] += 1
             
-            # NEW: Log this person in the daily trackers so they aren't repeated in the same step groups
+            # Log this person in the daily trackers so they are not repeated in the same step groups
             if s == "Step 1 (A)" or s == "Step 5 (E)":
                 daily_outer_used.append(chosen)
             else:
