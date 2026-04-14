@@ -15,72 +15,66 @@ if "df_schedule" not in st.session_state:
 
 
 def create_schedule(all_parts, present_parts, balas, hist_df):
-    """Generate routes. Steps 1 and 5 use all participants, but prefer absent participants.
-    Steps 2, 3, 4 use only present participants. No participant may appear twice in one row.
-    """
+    """Core logic to generate the route. Steps 1 & 5 use all_parts; 2, 3, 4 use present_parts."""
     counts = {s: {p: 0 for p in all_parts} for s in steps}
-
     if not hist_df.empty:
         for s in steps:
-            if s in hist_df.columns:
-                value_counts = hist_df[s].value_counts()
+            if s in hist_df:
                 for p in all_parts:
-                    counts[s][p] = value_counts.get(p, 0)
+                    counts[s][p] = hist_df[s].value_counts().get(p, 0)
 
-    used_balas = set()
-    if not hist_df.empty and "Balaclava" in hist_df.columns:
-        used_balas = set(hist_df["Balaclava"].dropna().astype(str))
+    used_balas = set(hist_df["Balaclava"].dropna().astype(str)) if not hist_df.empty and "Balaclava" in hist_df else set()
 
     schedule = []
-    absent_parts = [p for p in all_parts if p not in present_parts]
-
+    
+    # NEW: Trackers to remember who we've used across ALL rows being generated today
+    daily_middle_used = []
+    daily_outer_used = []
+    
     for b in [m for m in balas if m not in used_balas]:
-        route_created = False
+        route = {"Balaclava": b}
+        row_assigned = []
 
-        for _ in range(200):
-            route = {"Balaclava": b}
-            row_assigned = []
-            valid_route = True
-
-            for s in steps:
-                if s in ["Step 2 (B)", "Step 3 (C)", "Step 4 (D)"]:
-                    pool = [p for p in present_parts if p not in row_assigned]
-                else:
-                    preferred_pool = [p for p in absent_parts if p not in row_assigned]
-                    fallback_pool = [p for p in all_parts if p not in row_assigned]
-                    pool = preferred_pool if preferred_pool else fallback_pool
-
+        for s in steps:
+            # Steps 1 (A) and 5 (E) use the full list. Steps 2, 3, 4 use only present people.
+            if s == "Step 1 (A)" or s == "Step 5 (E)":
+                # Filter out people already used in outer steps today, AND people in the current row
+                pool = [p for p in all_parts if p not in row_assigned and p not in daily_outer_used]
+                
+                # If we've used everyone in the outer pool, reset the tracker so we don't get stuck
                 if not pool:
-                    valid_route = False
-                    break
+                    daily_outer_used = []
+                    pool = [p for p in all_parts if p not in row_assigned]
+            else:
+                # Filter out people already used in middle steps today, AND people in the current row
+                pool = [p for p in present_parts if p not in row_assigned and p not in daily_middle_used]
+                
+                # If we've used all present people, reset the middle tracker
+                if not pool:
+                    daily_middle_used = []
+                    pool = [p for p in present_parts if p not in row_assigned]
 
-                min_val = min(counts[s][p] for p in pool)
-                candidates = [p for p in pool if counts[s][p] == min_val]
-                chosen = random.choice(candidates)
+            if not pool:
+                break
 
-                route[s] = chosen
-                row_assigned.append(chosen)
+            # Pick the person with the lowest historical count from the valid pool
+            min_val = min(counts[s][p] for p in pool)
+            candidates = [p for p in pool if counts[s][p] == min_val]
+            chosen = random.choice(candidates)
 
-            if valid_route:
-                row_values = [route[s] for s in steps]
-                no_duplicates = len(row_values) == len(set(row_values))
-                middle_steps_valid = all(
-                    route[s] in present_parts
-                    for s in ["Step 2 (B)", "Step 3 (C)", "Step 4 (D)"]
-                )
+            route[s] = chosen
+            row_assigned.append(chosen)
+            counts[s][chosen] += 1
+            
+            # NEW: Log this person in the daily trackers so they aren't repeated in the same step groups
+            if s == "Step 1 (A)" or s == "Step 5 (E)":
+                daily_outer_used.append(chosen)
+            else:
+                daily_middle_used.append(chosen)
 
-                if no_duplicates and middle_steps_valid:
-                    for s in steps:
-                        counts[s][route[s]] += 1
-                    schedule.append(route)
-                    route_created = True
-                    break
-
-        if not route_created:
-            st.warning(f"Could not generate a valid route for {b}.")
-
+        schedule.append(route)
+        
     return pd.DataFrame(schedule, columns=["Balaclava"] + steps)
-
 
 def render_downloads(df, filename):
     """Generates download buttons for CSV and Excel."""
