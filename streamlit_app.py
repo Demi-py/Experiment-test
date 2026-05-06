@@ -13,6 +13,7 @@ if "history_df" not in st.session_state:
 if "df_schedule" not in st.session_state:
     st.session_state.df_schedule = None
 
+
 def create_schedule(all_parts, present_parts, balas, hist_df):
     """Core logic to generate the route. Steps 1 & 5 use all_parts; 2, 3, 4 use present_parts."""
     counts = {s: {p: 0 for p in all_parts} for s in steps}
@@ -69,9 +70,11 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             counts[s][chosen] += 1
             daily_used[s].append(chosen)
 
+        route["Row"] = len(schedule) + 1
         schedule.append(route)
 
-    return pd.DataFrame(schedule, columns=["Balaclava"] + steps)
+    return pd.DataFrame(schedule, columns=["Row", "Balaclava"] + steps)
+
 
 def render_downloads(df, filename):
     """Generates download buttons for CSV and Excel."""
@@ -171,7 +174,7 @@ if st.session_state.df_schedule is not None:
                 help="Optional notes for this route"
             )
         },
-        disabled=["Balaclava"] + steps,
+        disabled=["Row", "Balaclava"] + steps,
         use_container_width=True,
         hide_index=True,
         key="main_editor"
@@ -201,7 +204,6 @@ if st.session_state.df_schedule is not None:
     if st.button("Clear & Start Over"):
         st.session_state.df_schedule = None
         st.rerun()
-
 ##Credits
 #This project was developed by Demi van Dijk, DNA Analyst at the Netherlands Forensic Institute (NFI). The initial vesion of the scheduling alogrithm was created with help from Stijn van Lierop, Datascientist at the NFI. 
 #The application was further developed, refined, and extended by Demi van Dijk, including the interface and functionality.
