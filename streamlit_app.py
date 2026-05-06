@@ -13,10 +13,10 @@ if "history_df" not in st.session_state:
 if "df_schedule" not in st.session_state:
     st.session_state.df_schedule = None
 
-
 def create_schedule(all_parts, present_parts, balas, hist_df):
     """Core logic to generate the route. Steps 1 & 5 use all_parts; 2, 3, 4 use present_parts."""
     counts = {s: {p: 0 for p in all_parts} for s in steps}
+
     if not hist_df.empty:
         for s in steps:
             if s in hist_df:
@@ -26,38 +26,40 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
     used_balas = set(hist_df["Balaclava"].dropna().astype(str)) if not hist_df.empty and "Balaclava" in hist_df else set()
 
     schedule = []
-    
-    # To remember who we have used across ALL rows being generated today
-    daily_middle_used = []
-    daily_outer_used = []
-    
+
+    # Track usage per position today
+    daily_used = {s: [] for s in steps}
+
     for b in [m for m in balas if m not in used_balas]:
         route = {"Balaclava": b}
         row_assigned = []
 
         for s in steps:
-            # Steps 1 (A) and 5 (E) use the full list. Steps 2, 3, 4 use only present people.
+            # Steps A and E use all participants, B/C/D only present participants
             if s == "Step 1 (A)" or s == "Step 5 (E)":
-                # Filter out people already used in outer steps today, AND people in the current row
-                pool = [p for p in all_parts if p not in row_assigned and p not in daily_outer_used]
-                
-                # If we've used everyone in the outer pool, reset the tracker so we don't get stuck
-                if not pool:
-                    daily_outer_used = []
-                    pool = [p for p in all_parts if p not in row_assigned]
+                eligible_parts = all_parts
             else:
-                # Filter out people already used in middle steps today, AND people in the current row
-                pool = [p for p in present_parts if p not in row_assigned and p not in daily_middle_used]
-                
-                # If we've used all present people, reset the middle tracker
-                if not pool:
-                    daily_middle_used = []
-                    pool = [p for p in present_parts if p not in row_assigned]
+                eligible_parts = present_parts
+
+            # Person cannot be repeated in same row
+            # Person also cannot repeat in the same position until everyone had that position once
+            pool = [
+                p for p in eligible_parts
+                if p not in row_assigned and p not in daily_used[s]
+            ]
+
+            # If everyone has had this position once, reset that position only
+            if not pool:
+                daily_used[s] = []
+                pool = [
+                    p for p in eligible_parts
+                    if p not in row_assigned
+                ]
 
             if not pool:
                 break
 
-            # Pick the person with the lowest historical count from the valid pool
+            # Pick the person with the lowest historical count for this exact step
             min_val = min(counts[s][p] for p in pool)
             candidates = [p for p in pool if counts[s][p] == min_val]
             chosen = random.choice(candidates)
@@ -65,15 +67,10 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             route[s] = chosen
             row_assigned.append(chosen)
             counts[s][chosen] += 1
-            
-            # Log this person in the daily trackers so they are not repeated in the same step groups
-            if s == "Step 1 (A)" or s == "Step 5 (E)":
-                daily_outer_used.append(chosen)
-            else:
-                daily_middle_used.append(chosen)
+            daily_used[s].append(chosen)
 
         schedule.append(route)
-        
+
     return pd.DataFrame(schedule, columns=["Balaclava"] + steps)
 
 def render_downloads(df, filename):
