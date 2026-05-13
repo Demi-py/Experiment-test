@@ -34,16 +34,22 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
     # Track usage per position today
     daily_used = {s: [] for s in steps}
 
+    # Track P13-P15 once total per daily schedule
+    daily_used_bc_only = []
+
     for b in [m for m in balas if m not in used_balas]:
         route = {"Balaclava": b}
         row_assigned = []
 
         for s in steps:
-            # Steps A and E use P1-P12, B/C use present participants, D excludes P13-P15
+            # Steps A and E use P1-P12, B/C may use P13-P15, D excludes P13-P15
             if s == "Step 1 (A)" or s == "Step 5 (E)":
                 eligible_parts = regular_parts
             elif s == "Step 2 (B)" or s == "Step 3 (C)":
-                eligible_parts = present_parts
+                eligible_parts = [
+                    p for p in present_parts
+                    if p not in bc_only_parts or p not in daily_used_bc_only
+                ]
             else:
                 eligible_parts = [p for p in present_parts if p not in bc_only_parts]
 
@@ -74,6 +80,9 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             row_assigned.append(chosen)
             counts[s][chosen] += 1
             daily_used[s].append(chosen)
+
+            if chosen in bc_only_parts:
+                daily_used_bc_only.append(chosen)
 
         route["Row"] = len(schedule) + 1
         schedule.append(route)
@@ -185,7 +194,7 @@ if st.session_state.df_schedule is not None:
         key="main_editor"
     )
 
-    # Validation of the table logic
+    # Validation logic
     row_check = steps
     has_dupes = any(
         len(list(row)) != len(set(row))
