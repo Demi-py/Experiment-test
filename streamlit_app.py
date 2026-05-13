@@ -16,12 +16,15 @@ if "df_schedule" not in st.session_state:
 
 def create_schedule(all_parts, present_parts, balas, hist_df):
     """Core logic to generate the route. Steps 1 & 5 use all_parts; 2, 3, 4 use present_parts."""
-    counts = {s: {p: 0 for p in all_parts} for s in steps}
+    bc_only_parts = ["P13", "P14", "P15"]
+    count_parts = all_parts + bc_only_parts
+
+    counts = {s: {p: 0 for p in count_parts} for s in steps}
 
     if not hist_df.empty:
         for s in steps:
             if s in hist_df:
-                for p in all_parts:
+                for p in count_parts:
                     counts[s][p] = hist_df[s].value_counts().get(p, 0)
 
     used_balas = set(hist_df["Balaclava"].dropna().astype(str)) if not hist_df.empty and "Balaclava" in hist_df else set()
@@ -36,9 +39,11 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
         row_assigned = []
 
         for s in steps:
-            # Steps A and E use all participants, B/C/D only present participants
+            # Steps A and E use all participants, B/C use present participants + P13-P15, D only present participants
             if s == "Step 1 (A)" or s == "Step 5 (E)":
                 eligible_parts = all_parts
+            elif s == "Step 2 (B)" or s == "Step 3 (C)":
+                eligible_parts = present_parts + bc_only_parts
             else:
                 eligible_parts = present_parts
 
@@ -163,7 +168,7 @@ if st.button("Generate New Schedule"):
 if st.session_state.df_schedule is not None:
     st.divider()
     st.subheader("Today's Schedule")
-    st.write("Steps A and E use the full list. Steps B, C, and D use present participants.")
+    st.write("Steps A and E use the full list. Steps B and C can also use P13, P14, and P15. Step D uses present participants.")
 
     edited_df = st.data_editor(
         st.session_state.df_schedule,
