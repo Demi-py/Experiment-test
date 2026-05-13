@@ -37,6 +37,9 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
     # Track P13-P15 once total per daily schedule
     daily_used_bc_only = []
 
+    # Track all participants once total across B, C and D per daily schedule
+    daily_used_bcd = []
+
     for b in [m for m in balas if m not in used_balas]:
         route = {"Balaclava": b}
         row_assigned = []
@@ -48,10 +51,15 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             elif s == "Step 2 (B)" or s == "Step 3 (C)":
                 eligible_parts = [
                     p for p in present_parts
-                    if p not in bc_only_parts or p not in daily_used_bc_only
+                    if p not in daily_used_bcd
+                    and (p not in bc_only_parts or p not in daily_used_bc_only)
                 ]
             else:
-                eligible_parts = [p for p in present_parts if p not in bc_only_parts]
+                eligible_parts = [
+                    p for p in present_parts
+                    if p not in bc_only_parts
+                    and p not in daily_used_bcd
+                ]
 
             # Person cannot be repeated in same row
             # Person also cannot repeat in the same position until everyone had that position once
@@ -80,6 +88,9 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             row_assigned.append(chosen)
             counts[s][chosen] += 1
             daily_used[s].append(chosen)
+
+            if s == "Step 2 (B)" or s == "Step 3 (C)" or s == "Step 4 (D)":
+                daily_used_bcd.append(chosen)
 
             if chosen in bc_only_parts:
                 daily_used_bc_only.append(chosen)
