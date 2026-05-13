@@ -185,7 +185,7 @@ if st.session_state.df_schedule is not None:
         key="main_editor"
     )
 
-    # Validation logic
+    # Validation of the table logic
     row_check = steps
     has_dupes = any(
         len(list(row)) != len(set(row))
