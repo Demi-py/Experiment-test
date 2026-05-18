@@ -6,7 +6,6 @@ import io
 # 1. Setup for the schedule
 st.set_page_config(page_title="Balaclava Schedule Generator", layout="wide")
 st.title("Balaclava Schedule Generator")
-
 steps = [f"Step {i} ({chr(64+i)})" for i in range(1, 6)]
 
 if "history_df" not in st.session_state:
@@ -16,8 +15,8 @@ if "df_schedule" not in st.session_state:
     st.session_state.df_schedule = None
 
 
-def clean_history_df(hist_df):
-    """Clean uploaded history so columns and participant values match the expected format."""
+def create_schedule(all_parts, present_parts, balas, hist_df):
+
     hist_df = hist_df.copy()
 
     if not hist_df.empty:
@@ -27,44 +26,34 @@ def clean_history_df(hist_df):
             if hist_df[col].dtype == "object":
                 hist_df[col] = hist_df[col].astype(str).str.strip()
 
-    return hist_df
-
-
-def create_schedule(all_parts, present_parts, balas, hist_df):
-    """Core logic to generate the route."""
-
-    hist_df = clean_history_df(hist_df)
-
     bc_only_parts = ["P13", "P14", "P15"]
     regular_parts = [p for p in all_parts if p not in bc_only_parts]
 
     counts = {s: {p: 0 for p in all_parts} for s in steps}
 
-    # Read previous uploaded history
+    # Read uploaded history
     if not hist_df.empty:
         for s in steps:
             if s in hist_df.columns:
-                clean_values = hist_df[s].dropna().astype(str).str.strip()
-                value_counts = clean_values.value_counts()
+                vals = hist_df[s].dropna().astype(str).str.strip()
 
                 for p in all_parts:
-                    counts[s][p] = value_counts.get(p, 0)
+                    counts[s][p] = vals.value_counts().get(p, 0)
 
-    used_balas = (
-        set(hist_df["Balaclava"].dropna().astype(str).str.strip())
-        if not hist_df.empty and "Balaclava" in hist_df.columns
-        else set()
-    )
+    used_balas = set(
+        hist_df["Balaclava"].dropna().astype(str).str.strip()
+    ) if not hist_df.empty and "Balaclava" in hist_df.columns else set()
 
     schedule = []
 
     # Track usage per exact position today
     daily_used = {s: [] for s in steps}
 
-    # Track P13-P15 once total per daily schedule
+    # Track P13-P15 once total
     daily_used_bc_only = []
 
     for b in [m for m in balas if m not in used_balas]:
+
         route = {"Balaclava": b}
         row_assigned = []
 
@@ -74,7 +63,7 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             if s == "Step 1 (A)" or s == "Step 5 (E)":
                 eligible_parts = regular_parts
 
-            # B and C may use P13-P15, but P13-P15 only once total
+            # B and C may use P13-P15
             elif s == "Step 2 (B)" or s == "Step 3 (C)":
                 eligible_parts = [
                     p for p in present_parts
@@ -88,8 +77,8 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
                     if p not in bc_only_parts
                 ]
 
-            # Person cannot repeat in the same row
-            # Person cannot repeat in the same exact position today
+            # No duplicate in row
+            # No duplicate in same position today
             pool = [
                 p for p in eligible_parts
                 if p not in row_assigned
@@ -99,13 +88,14 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             if not pool:
                 break
 
-            # Pick the person with the lowest historical count for this exact step
+            # Lowest historical count for this position
             min_val = min(counts[s][p] for p in pool)
             candidates = [p for p in pool if counts[s][p] == min_val]
             chosen = random.choice(candidates)
 
             route[s] = chosen
             row_assigned.append(chosen)
+
             counts[s][chosen] += 1
             daily_used[s].append(chosen)
 
@@ -121,7 +111,7 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
 
 
 def render_downloads(df, filename):
-    """Generates download buttons for CSV and Excel."""
+
     c1, c2 = st.columns(2)
 
     c1.download_button(
@@ -147,6 +137,7 @@ def render_downloads(df, filename):
 all_participants = [f"P{i}" for i in range(1, 16)]
 
 with st.sidebar:
+
     st.header("Setup")
 
     present_participants = st.multiselect(
@@ -161,25 +152,35 @@ with st.sidebar:
 
     active_balas = [m.strip() for m in balaclava_input.split(",") if m.strip()]
 
-    history_file = st.file_uploader("Upload Master History", type=["csv", "xlsx"])
+    history_file = st.file_uploader(
+        "Upload Master History",
+        type=["csv", "xlsx"]
+    )
 
     if history_file:
-        if history_file.name.endswith(".csv"):
-            uploaded_history = pd.read_csv(history_file)
-        else:
-            uploaded_history = pd.read_excel(history_file)
 
-        st.session_state.history_df = clean_history_df(uploaded_history)
+        if history_file.name.endswith(".csv"):
+            st.session_state.history_df = pd.read_csv(history_file)
+
+        else:
+            st.session_state.history_df = pd.read_excel(history_file)
+
+        st.session_state.history_df.columns = (
+            st.session_state.history_df.columns.astype(str).str.strip()
+        )
 
 
 # 3. History
 if not st.session_state.history_df.empty:
+
     with st.expander("View Uploaded History Records", expanded=False):
+
         st.dataframe(
             st.session_state.history_df,
             use_container_width=True,
             hide_index=True
         )
+
 else:
     st.info("No history loaded yet. Routes will be generated randomly.")
 
@@ -188,12 +189,17 @@ else:
 if st.button("Generate New Schedule"):
 
     if len(present_participants) < 3:
-        st.error("You need at least 3 present participants for Steps B, C, and D.")
+
+        st.error(
+            "You need at least 3 present participants for Steps B, C, and D."
+        )
 
     elif not active_balas:
+
         st.error("Please enter at least one Balaclava ID.")
 
     else:
+
         new_df = create_schedule(
             all_participants,
             present_participants,
@@ -202,58 +208,69 @@ if st.button("Generate New Schedule"):
         )
 
         if not new_df.empty:
+
             new_df["Done?"] = False
             new_df["Comments"] = ""
+
             st.session_state.df_schedule = new_df
 
         else:
+
             st.warning(
-                "All provided Balaclava IDs have already been used in the history, "
+                "All provided Balaclava IDs have already been used "
                 "or no valid complete routes could be generated."
             )
 
 
-# 5. Create interactive table
+# 5. Interactive table
 if st.session_state.df_schedule is not None:
+
     st.divider()
+
     st.subheader("Today's Schedule")
-    st.write("Steps A and E use P1-P12. Steps B and C may also use P13-P15. Step D uses P1-P12 only.")
 
     edited_df = st.data_editor(
         st.session_state.df_schedule,
+
         column_config={
-            "Done?": st.column_config.CheckboxColumn("Completed", default=False),
+            "Done?": st.column_config.CheckboxColumn(
+                "Completed",
+                default=False
+            ),
+
             "Comments": st.column_config.TextColumn(
                 "Comments",
-                help="Optional notes for this route"
+                help="Optional notes"
             )
         },
+
         disabled=["Row", "Balaclava"] + steps,
+
         use_container_width=True,
         hide_index=True,
         key="main_editor"
     )
 
-    # Validation logic
-    row_check = steps
-
+    # Validation
     has_row_dupes = any(
         len(list(row)) != len(set(row))
-        for _, row in edited_df[row_check].iterrows()
+        for _, row in edited_df[steps].iterrows()
     )
 
     has_position_dupes = False
 
     for s in steps:
-        values = edited_df[s].dropna().astype(str).str.strip()
-        if values.duplicated().any():
+
+        vals = edited_df[s].dropna().astype(str)
+
+        if vals.duplicated().any():
             has_position_dupes = True
 
     if has_row_dupes:
-        st.error("Duplicate participant detected in the same row!")
+        st.error("Duplicate participant in same row!")
 
     elif has_position_dupes:
-        st.error("Duplicate participant detected in the same position today!")
+        st.error("Duplicate participant in same position!")
 
     else:
         st.success("Schedule is valid.")
@@ -272,14 +289,17 @@ if st.session_state.df_schedule is not None:
     )
 
     st.divider()
+
     st.write("### Export Data")
 
     render_downloads(edited_df, "daily_schedule")
     render_downloads(combined_hist, "history_updated")
 
     if st.button("Clear & Start Over"):
+
         st.session_state.df_schedule = None
         st.rerun()
+
 ##Credits
 #This project was developed by Demi van Dijk, DNA Analyst at the Netherlands Forensic Institute (NFI). The initial vesion of the scheduling alogrithm was created with help from Stijn van Lierop, Datascientist at the NFI. 
 #The application was further developed, refined, and extended by Demi van Dijk, including the interface and functionality.
