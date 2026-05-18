@@ -15,7 +15,8 @@ if "df_schedule" not in st.session_state:
 
 
 def create_schedule(all_parts, present_parts, balas, hist_df):
-    """Core logic to generate the route. Steps 1 & 5 use all_parts; 2, 3, 4 use present_parts."""
+    """Core logic to generate the route. Steps A and E use P1-P12; B and C may use P13-P15; D excludes P13-P15."""
+
     bc_only_parts = ["P13", "P14", "P15"]
     regular_parts = [p for p in all_parts if p not in bc_only_parts]
 
@@ -31,55 +32,48 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
 
     schedule = []
 
-    # Track usage per position today
+    # Track usage per exact position today
     daily_used = {s: [] for s in steps}
 
     # Track P13-P15 once total per daily schedule
     daily_used_bc_only = []
-
-    # Track all participants once total across B, C and D per daily schedule
-    daily_used_bcd = []
 
     for b in [m for m in balas if m not in used_balas]:
         route = {"Balaclava": b}
         row_assigned = []
 
         for s in steps:
-            # Steps A and E use P1-P12, B/C may use P13-P15, D excludes P13-P15
+
+            # A and E only use P1-P12
             if s == "Step 1 (A)" or s == "Step 5 (E)":
                 eligible_parts = regular_parts
+
+            # B and C may use P13-P15, but P13-P15 only once total
             elif s == "Step 2 (B)" or s == "Step 3 (C)":
                 eligible_parts = [
                     p for p in present_parts
-                    if p not in daily_used_bcd
-                    and (p not in bc_only_parts or p not in daily_used_bc_only)
+                    if p in regular_parts or p not in daily_used_bc_only
                 ]
+
+            # D only uses P1-P12
             else:
                 eligible_parts = [
                     p for p in present_parts
                     if p not in bc_only_parts
-                    and p not in daily_used_bcd
                 ]
 
-            # Person cannot be repeated in same row
-            # Person also cannot repeat in the same position until everyone had that position once
+            # Person cannot repeat in the same row
+            # Person cannot repeat in the same exact position today
             pool = [
                 p for p in eligible_parts
-                if p not in row_assigned and p not in daily_used[s]
+                if p not in row_assigned
+                and p not in daily_used[s]
             ]
 
-            # If everyone has had this position once, reset that position only
-            if not pool:
-                daily_used[s] = []
-                pool = [
-                    p for p in eligible_parts
-                    if p not in row_assigned
-                ]
-
+            # No reset here, because that caused duplicate people in the same position
             if not pool:
                 break
 
-            # Pick the person with the lowest historical count for this exact step
             min_val = min(counts[s][p] for p in pool)
             candidates = [p for p in pool if counts[s][p] == min_val]
             chosen = random.choice(candidates)
@@ -89,14 +83,13 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
             counts[s][chosen] += 1
             daily_used[s].append(chosen)
 
-            if s == "Step 2 (B)" or s == "Step 3 (C)" or s == "Step 4 (D)":
-                daily_used_bcd.append(chosen)
-
             if chosen in bc_only_parts:
                 daily_used_bc_only.append(chosen)
 
-        route["Row"] = len(schedule) + 1
-        schedule.append(route)
+        # Only save complete rows
+        if all(s in route for s in steps):
+            route["Row"] = len(schedule) + 1
+            schedule.append(route)
 
     return pd.DataFrame(schedule, columns=["Row", "Balaclava"] + steps)
 
