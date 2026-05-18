@@ -6,29 +6,55 @@ import io
 # 1. Setup for the schedule
 st.set_page_config(page_title="Balaclava Schedule Generator", layout="wide")
 st.title("Balaclava Schedule Generator")
+
 steps = [f"Step {i} ({chr(64+i)})" for i in range(1, 6)]
 
 if "history_df" not in st.session_state:
     st.session_state.history_df = pd.DataFrame()
+
 if "df_schedule" not in st.session_state:
     st.session_state.df_schedule = None
 
 
+def clean_history_df(hist_df):
+    """Clean uploaded history so columns and participant values match the expected format."""
+    hist_df = hist_df.copy()
+
+    if not hist_df.empty:
+        hist_df.columns = hist_df.columns.astype(str).str.strip()
+
+        for col in hist_df.columns:
+            if hist_df[col].dtype == "object":
+                hist_df[col] = hist_df[col].astype(str).str.strip()
+
+    return hist_df
+
+
 def create_schedule(all_parts, present_parts, balas, hist_df):
-    """Core logic to generate the route. Steps A and E use P1-P12; B and C may use P13-P15; D excludes P13-P15."""
+    """Core logic to generate the route."""
+
+    hist_df = clean_history_df(hist_df)
 
     bc_only_parts = ["P13", "P14", "P15"]
     regular_parts = [p for p in all_parts if p not in bc_only_parts]
 
     counts = {s: {p: 0 for p in all_parts} for s in steps}
 
+    # Read previous uploaded history
     if not hist_df.empty:
         for s in steps:
-            if s in hist_df:
-                for p in all_parts:
-                    counts[s][p] = hist_df[s].value_counts().get(p, 0)
+            if s in hist_df.columns:
+                clean_values = hist_df[s].dropna().astype(str).str.strip()
+                value_counts = clean_values.value_counts()
 
-    used_balas = set(hist_df["Balaclava"].dropna().astype(str)) if not hist_df.empty and "Balaclava" in hist_df else set()
+                for p in all_parts:
+                    counts[s][p] = value_counts.get(p, 0)
+
+    used_balas = (
+        set(hist_df["Balaclava"].dropna().astype(str).str.strip())
+        if not hist_df.empty and "Balaclava" in hist_df.columns
+        else set()
+    )
 
     schedule = []
 
@@ -70,10 +96,10 @@ def create_schedule(all_parts, present_parts, balas, hist_df):
                 and p not in daily_used[s]
             ]
 
-            # No reset here, because that caused duplicate people in the same position
             if not pool:
                 break
 
+            # Pick the person with the lowest historical count for this exact step
             min_val = min(counts[s][p] for p in pool)
             candidates = [p for p in pool if counts[s][p] == min_val]
             chosen = random.choice(candidates)
@@ -106,6 +132,7 @@ def render_downloads(df, filename):
     )
 
     buf = io.BytesIO()
+
     with pd.ExcelWriter(buf, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
 
@@ -131,14 +158,18 @@ with st.sidebar:
         "Balaclavas (comma-separated)",
         placeholder="B1, B2, B3..."
     )
+
     active_balas = [m.strip() for m in balaclava_input.split(",") if m.strip()]
 
     history_file = st.file_uploader("Upload Master History", type=["csv", "xlsx"])
-    if history_file and st.session_state.history_df.empty:
+
+    if history_file:
         if history_file.name.endswith(".csv"):
-            st.session_state.history_df = pd.read_csv(history_file)
+            uploaded_history = pd.read_csv(history_file)
         else:
-            st.session_state.history_df = pd.read_excel(history_file)
+            uploaded_history = pd.read_excel(history_file)
+
+        st.session_state.history_df = clean_history_df(uploaded_history)
 
 
 # 3. History
@@ -155,10 +186,13 @@ else:
 
 # 4. New schedule
 if st.button("Generate New Schedule"):
+
     if len(present_participants) < 3:
         st.error("You need at least 3 present participants for Steps B, C, and D.")
+
     elif not active_balas:
         st.error("Please enter at least one Balaclava ID.")
+
     else:
         new_df = create_schedule(
             all_participants,
@@ -171,9 +205,11 @@ if st.button("Generate New Schedule"):
             new_df["Done?"] = False
             new_df["Comments"] = ""
             st.session_state.df_schedule = new_df
+
         else:
             st.warning(
-                "All provided Balaclava IDs have already been used in the history, or no valid routes could be generated."
+                "All provided Balaclava IDs have already been used in the history, "
+                "or no valid complete routes could be generated."
             )
 
 
@@ -181,7 +217,7 @@ if st.button("Generate New Schedule"):
 if st.session_state.df_schedule is not None:
     st.divider()
     st.subheader("Today's Schedule")
-    st.write("Steps A and E use the full list. Steps B, C, and D use present participants.")
+    st.write("Steps A and E use P1-P12. Steps B and C may also use P13-P15. Step D uses P1-P12 only.")
 
     edited_df = st.data_editor(
         st.session_state.df_schedule,
@@ -200,22 +236,44 @@ if st.session_state.df_schedule is not None:
 
     # Validation logic
     row_check = steps
-    has_dupes = any(
+
+    has_row_dupes = any(
         len(list(row)) != len(set(row))
         for _, row in edited_df[row_check].iterrows()
     )
 
-    if has_dupes:
+    has_position_dupes = False
+
+    for s in steps:
+        values = edited_df[s].dropna().astype(str).str.strip()
+        if values.duplicated().any():
+            has_position_dupes = True
+
+    if has_row_dupes:
         st.error("Duplicate participant detected in the same row!")
+
+    elif has_position_dupes:
+        st.error("Duplicate participant detected in the same position today!")
+
     else:
         st.success("Schedule is valid.")
 
     st.subheader("Updated History Preview")
-    combined_hist = pd.concat([st.session_state.history_df, edited_df], ignore_index=True)
-    st.dataframe(combined_hist, use_container_width=True, hide_index=True)
+
+    combined_hist = pd.concat(
+        [st.session_state.history_df, edited_df],
+        ignore_index=True
+    )
+
+    st.dataframe(
+        combined_hist,
+        use_container_width=True,
+        hide_index=True
+    )
 
     st.divider()
     st.write("### Export Data")
+
     render_downloads(edited_df, "daily_schedule")
     render_downloads(combined_hist, "history_updated")
 
